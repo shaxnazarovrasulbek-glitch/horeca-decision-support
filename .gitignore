@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Secrets - never commit your API key
+.env
+.streamlit/secrets.toml
+
+# Generated data
+data/*.csv
+data/generated/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# local helper used once to publish the repo
+publish_to_github.bat

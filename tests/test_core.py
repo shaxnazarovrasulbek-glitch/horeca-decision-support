@@ -1,0 +1,199 @@
+"""Unit and integration tests for the analytics core (run: pytest -q)."""
+from __future__ import annotations
+
+import io
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from horeca_dss import assistant, basket, forecasting, kpis, menu_engineering, operations, pricing
+from horeca_dss.analysis import Settings, commercial_bundle, forecast_bundle, kpi_bundle, operations_bundle
+from horeca_dss.data.generator import generate_dataset
+from horeca_dss.data.loader import REQUIRED_COLUMNS, daily_totals, load_csv, load_generated
+
+
+@pytest.fixture(scope="session")
+def ds():
+    return load_generated(seed=3, end="2026-06-30", days=300)
+
+
+# ---- data ---------------------------------------------------------------------------------
+
+def test_generator_schema_and_determinism():
+    a = generate_dataset(end="2026-03-31", days=60, seed=11)["sales"]
+    b = generate_dataset(end="2026-03-31", days=60, seed=11)["sales"]
+    for c in REQUIRED_COLUMNS:
+        assert c in a.columns
+    assert (a["qty"] > 0).all() and (a["unit_price"] > 0).all()
+    assert a["branch"].nunique() == 2
+    assert a["qty"].sum() == b["qty"].sum()                     # same seed -> same data
+    assert (a["unit_cost"] < a["unit_price"]).all()
+
+
+def test_upload_with_minimal_columns():
+    raw = generate_dataset(end="2026-03-31", days=30, seed=5)["sales"]
+    minimal = raw[["order_id", "datetime", "branch", "item_name", "qty", "unit_price"]]
+    buf = io.BytesIO()
+    minimal.to_csv(buf, index=False)
+    up = load_csv(buf.getvalue(), "minimal.csv")
+    assert len(up.sales) == len(raw)
+    assert up.sales["unit_cost"].gt(0).all()                     # derived from price
+    assert any("food cost" in n for n in up.notes)
+
+
+def test_upload_rejects_missing_required():
+    df = pd.DataFrame({"order_id": [1], "datetime": ["2026-01-01 12:00"], "qty": [1]})
+    with pytest.raises(ValueError):
+        load_csv(df.to_csv(index=False).encode(), "bad.csv")
+
+
+# ---- KPIs & anomalies -------------------------------------------------------------------
+
+def test_kpi_summary_consistency(ds):
+    s = kpis.summary(ds.sales)
+    assert s["revenue"] == pytest.approx(ds.sales["revenue"].sum())
+    assert s["avg_check"] == pytest.approx(s["revenue"] / s["orders"])
+    assert 0.15 < s["food_cost_pct"] < 0.45
+
+
+def test_planted_outage_is_detected(ds):
+    an = kpis.detect_anomalies(ds.sales, ds.calendar, lookback_days=400)
+    inc = ds.incidents.iloc[0]                                   # power outage
+    hit = an[(an["branch"] == inc["branch"]) & (an["date"] == inc["start"])]
+    assert len(hit) == 1
+    assert hit.iloc[0]["type"] == "drop"
+    assert "15:00" in hit.iloc[0]["explanation"]
+
+
+# ---- forecasting ----------------------------------------------------------------------------
+
+def test_forecast_shape_and_positivity(ds):
+    fc = forecasting.DemandForecaster("revenue").fit(daily_totals(ds.sales), ds.calendar).predict(14)
+    assert len(fc) == 14 * 2
+    assert (fc["forecast"] >= 0).all()
+    assert fc["date"].min() == ds.end + pd.Timedelta(days=1)
+
+
+def test_forecast_beats_naive_baseline(ds):
+    bt = forecasting.backtest(ds.sales, ds.calendar, "covers", n_origins=4)
+    m = bt["metrics"].set_index("method")["WAPE"]
+    assert m.iloc[0] < m.loc["Same weekday last week"]
+    assert m.iloc[0] < 0.25
+
+
+def test_promo_what_if_increases_forecast(ds):
+    f = forecasting.DemandForecaster("covers").fit(daily_totals(ds.sales), ds.calendar)
+    assert f.predict(7, promo=True)["forecast"].sum() > f.predict(7)["forecast"].sum()
+
+
+# ---- menu, pricing, basket ---------------------------------------------------------------
+
+def test_menu_engineering_segments():
+    rows = []
+    # two dishes in one section: A popular + high margin (Star), B unpopular + low margin (Dog)
+    for i in range(80):
+        rows.append({"order_id": f"o{i}", "item_id": "A", "item_name": "A", "category": "Main", "qty": 1,
+                     "revenue": 50000, "food_cost": 15000})
+    for i in range(10):
+        rows.append({"order_id": f"p{i}", "item_id": "B", "item_name": "B", "category": "Main", "qty": 1,
+                     "revenue": 30000, "food_cost": 20000})
+    me = menu_engineering.menu_engineering(pd.DataFrame(rows)).set_index("item_id")
+    assert me.loc["A", "segment"] == "Star"
+    assert me.loc["B", "segment"] == "Dog"
+
+
+def test_price_recommendation_direction():
+    menu = pd.DataFrame({"item_id": ["X", "Y", "Z"], "item_name": ["X", "Y", "Z"], "category": ["Main"] * 3,
+                         "price": [40000, 40000, 40000], "unit_cost": [14000, 14000, 14000]})
+    el = pd.DataFrame({"item_id": ["X", "Y", "Z"], "elasticity": [-0.3, -2.5, -0.3],
+                       "confidence": ["High", "High", "Low"], "method": ["estimated", "estimated", "category prior"]})
+    sales = pd.DataFrame({"item_id": ["X", "Y", "Z"], "qty": [3000, 3000, 3000]})
+    rec = pricing.price_recommendations(sales, menu, el, 30).set_index("item_id")
+    assert rec.loc["X", "recommended_price"] > 40000             # inelastic -> raise
+    assert rec.loc["Y", "recommended_price"] <= 40000            # elastic -> do not raise
+    assert rec.loc["Z", "recommended_price"] == 40000            # low confidence -> test first
+
+
+def test_elasticity_sign(ds):
+    el = pricing.estimate_elasticities(ds.sales, ds.calendar)
+    est = el[el["method"].str.startswith("estimated")]
+    assert len(est) >= 5
+    assert (est["elasticity"] < 0).all()
+
+
+def test_basket_finds_planted_pairs(ds):
+    s = kpis.filter_sales(ds.sales, ds.end - pd.Timedelta(days=89), ds.end)
+    rules = basket.pair_rules(s)
+    pairs = {(r.antecedent_id, r.consequent_id): r.lift for r in rules.itertuples()}
+    assert pairs.get(("M06", "X02"), 0) > 1.5                    # burger -> fries
+    assert pairs.get(("M01", "S01"), 0) > 1.3                    # plov -> achichuk
+    up = basket.upsell_opportunities(rules, ds.menu, 90)
+    assert (up["extra_revenue_month"] > 0).all()
+
+
+# ---- operations ------------------------------------------------------------------------------
+
+def test_staffing_respects_standards():
+    hourly = pd.DataFrame({"date": pd.Timestamp("2026-01-01"), "branch": "A", "hour": [10, 13, 20],
+                           "value": [2.0, 25.0, 40.0]})
+    std = operations.StaffStandards(covers_per_waiter_hour=12, covers_per_cook_hour=18)
+    plan = operations.staffing_plan(hourly, std)
+    assert plan["waiters"].tolist() == [1, 3, 4]
+    assert plan["cooks"].tolist() == [1, 2, 3]
+
+
+def test_waste_backtest_ai_beats_naive(ds):
+    wb = operations.waste_backtest(ds.sales, ds.calendar, ds.recipes, ds.ingredients, weeks=2)
+    assert wb["waste_reduction"] > 0
+
+
+# ---- assistant ---------------------------------------------------------------------------------
+
+@pytest.fixture(scope="session")
+def facts(ds):
+    st = Settings()
+    fc = forecast_bundle(ds, 14)
+    return assistant.build_facts(ds, kpi_bundle(ds, st), commercial_bundle(ds, st), fc,
+                                 operations_bundle(ds, fc["covers"], st))
+
+
+@pytest.mark.parametrize("q,expect", [
+    ("Why did revenue drop on Tuesday?", "Why:"),
+    ("What should we promote this weekend?", "Puzzles"),
+    ("Which prices should we change?", "Price"),
+    ("How many waiters do we need?", "staff-hours"),
+    ("Что закупить?", "Purchase plan"),
+])
+def test_offline_assistant_intents(facts, q, expect):
+    bot = assistant.Assistant(facts, api_key=None)
+    bot.client = None                                            # force offline even if a key is set
+    res = bot.ask(q)
+    assert expect in res["text"]
+    assert res["engine"].startswith("Offline")
+
+
+class _Resp:
+    def __init__(self, code, payload=None):
+        self.status_code, self._p = code, payload or {}
+
+    def json(self):
+        return self._p
+
+
+def test_gemini_success_and_fallback(facts, monkeypatch):
+    ok = {"candidates": [{"content": {"parts": [{"text": "Revenue fell because of an outage."}]}}]}
+    monkeypatch.setattr(assistant.requests, "post", lambda *a, **k: _Resp(200, ok))
+    bot = assistant.Assistant(facts, api_key="test-key", model="gemini-test")
+    res = bot.ask("Why did revenue drop?")
+    assert res["engine"].startswith("Gemini") and "outage" in res["text"]
+
+    monkeypatch.setattr(assistant.requests, "post", lambda *a, **k: _Resp(429))
+    res = bot.ask("Why did revenue drop?")
+    assert res["engine"].startswith("Offline") and res["error"]
+
+
+def test_context_contains_key_numbers(facts):
+    ctx = assistant.context_text(facts)
+    assert "FORECAST next 7 days" in ctx and "MENU ENGINEERING" in ctx and "UPSELL" in ctx
+    assert len(ctx) < 12000                                      # stays small for the free tier
