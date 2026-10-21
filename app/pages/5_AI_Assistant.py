@@ -45,11 +45,20 @@ for row in rows:
                       icon=":material/summarize:" if q == "__briefing__" else ":material/help:"):
             asked = q
 
-for m in chat:
+def engine_label(m: dict) -> str:
+    out = m["engine"]
+    if m.get("seconds") is not None:
+        out += f" · answered in {m['seconds']:.1f} s"
+    return out + (f" · {m['error']}" if m.get("error") else "")
+
+
+for i, m in enumerate(chat):
     with st.chat_message(m["role"], avatar=":material/person:" if m["role"] == "user" else ":material/smart_toy:"):
         st.markdown(m["content"])
         if m.get("engine"):
-            st.caption(m["engine"] + (f" · {m['error']}" if m.get("error") else ""))
+            st.caption(engine_label(m))
+        if m["role"] == "assistant":
+            ui.feedback("AI assistant", m.get("question", "")[:60], m["content"][:300], f"ai_{i}")
 
 typed = st.chat_input("Ask in English, Russian or Uzbek…")
 question = typed or asked
@@ -62,9 +71,17 @@ if question:
             history = [{"role": m["role"], "content": m["content"]} for m in chat]
             res = bot.briefing() if question == "__briefing__" else bot.ask(question, history)
         st.markdown(res["text"])
-        st.caption(res["engine"] + (f" · {res['error']}" if res.get("error") else ""))
+        st.caption(engine_label(res))
+        ui.feedback("AI assistant", label[:60], res["text"][:300], f"ai_{len(chat) + 1}")
     chat += [{"role": "user", "content": label},
-             {"role": "assistant", "content": res["text"], "engine": res["engine"], "error": res.get("error")}]
+             {"role": "assistant", "content": res["text"], "engine": res["engine"], "error": res.get("error"),
+              "seconds": res.get("seconds"), "question": label}]
+
+times = [m["seconds"] for m in chat if m["role"] == "assistant" and str(m.get("engine", "")).startswith("Gemini")
+         and m.get("seconds") is not None]
+if times:
+    st.caption(f":material/timer: Gemini response time in this session: average {sum(times) / len(times):.1f} s, "
+               f"fastest {min(times):.1f} s, slowest {max(times):.1f} s ({len(times)} answers).")
 
 c1, c2 = st.columns([1, 5])
 if c1.button("Clear chat", icon=":material/delete:"):

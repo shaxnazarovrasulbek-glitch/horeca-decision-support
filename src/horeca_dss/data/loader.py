@@ -99,14 +99,17 @@ def menu_from_sales(sales: pd.DataFrame) -> pd.DataFrame:
     return menu.astype({"item_id": str, "item_name": str, "category": str}).reset_index(drop=True)
 
 
-def load_generated(seed: int = 42, end: str | None = None, days: int = 365) -> Dataset:
-    raw = generate_dataset(end=end, days=days, seed=seed)
+def load_generated(seed: int = 42, end: str | None = None, days: int = 365, n_branches: int = 2) -> Dataset:
+    from .catalog import make_branches
+    raw = generate_dataset(end=end, days=days, seed=seed,
+                           branches=None if n_branches == 2 else make_branches(n_branches, seed))
     sales, notes = prepare_sales(raw["sales"])
     end_s = sales["date"].max().strftime("%Y-%m-%d")
     return Dataset(
         sales=sales, calendar=raw["calendar"], menu=raw["menu"], recipes=raw["recipes"],
         ingredients=raw["ingredients"], incidents=raw["incidents"], truth=raw["truth"],
-        source="generated", dataset_id=f"gen-{seed}-{days}-{end_s}", notes=notes,
+        source="generated", dataset_id=f"gen-{seed}-{days}-{end_s}" + (f"-b{n_branches}" if n_branches != 2 else ""),
+        notes=notes,
     )
 
 

@@ -20,6 +20,9 @@ data/generated/
 Thumbs.db
 .idea/
 .vscode/
+publish_update.bat
 
-# local helper used once to publish the repo
+# personal documents kept next to the project (not part of the code)
+/*.docx
+.horeca_update*.tar.gz
 publish_to_github.bat

@@ -1,6 +1,7 @@
 """Shared Streamlit helpers: data loading, caching, sidebar, formatting, chart style."""
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -19,6 +20,7 @@ except Exception:  # pragma: no cover
     pass
 
 from horeca_dss import analysis, assistant, forecasting, kpis, operations  # noqa: E402
+from horeca_dss import feedback as fb  # noqa: E402
 from horeca_dss.data.loader import Dataset, load_csv, load_generated  # noqa: E402
 
 APP_NAME = "HoReCa Decision-Support Platform"
@@ -46,14 +48,28 @@ def _generated(seed: int, days: int, end: str) -> Dataset:
     return load_generated(seed=seed, end=end, days=days)
 
 
+EVAL_END = "2026-10-15"   # the evaluation date used in the README and the internship report
+
+
+def data_end() -> str:
+    """Last day of the generated demo data. Default: the evaluation date, so the app shows the same numbers
+    as the report. Set HORECA_DATA_END=yesterday (or pick it on the Data page) for a rolling window."""
+    choice = st.session_state.get("data_end") or os.environ.get("HORECA_DATA_END", EVAL_END)
+    if str(choice).lower() == "yesterday":
+        return (pd.Timestamp.today().normalize() - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+    return str(choice)
+
+
 def get_dataset() -> Dataset:
     ss = st.session_state
     if ss.get("uploaded_ds") is not None and ss.get("data_mode") == "upload":
         return ss["uploaded_ds"]
     seed = ss.get("seed", 42)
     days = ss.get("days", 365)
-    end = (pd.Timestamp.today().normalize() - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
-    return _generated(seed, days, end)
+    end = data_end()
+    ds = _generated(seed, days, end)
+    ss["_ds_id"] = ds.dataset_id
+    return ds
 
 
 def set_upload(file) -> Dataset:
@@ -79,6 +95,8 @@ def sidebar(ds: Dataset, show_branch: bool = True, show_period: bool = True) -> 
             st.session_state["period_days"] = period
         engine = "Gemini" if assistant.get_api_key() or st.session_state.get("session_api_key") else "offline rules"
         st.caption(f"AI assistant engine: {engine}")
+        roles = ["Branch manager", "Operations manager", "Owner / director", "Mentor / reviewer", "Other"]
+        st.selectbox("Your role (saved with your 👍/👎 feedback)", roles, key="fb_role")
     return branch, period
 
 
@@ -228,6 +246,46 @@ def to_markdown(df: pd.DataFrame) -> str:
     for row in df.itertuples(index=False):
         lines.append("| " + " | ".join(f"{v:.4g}" if isinstance(v, float) else str(v) for v in row) + " |")
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------------------
+# manager feedback ("Was this useful?") - every click is one row in data/feedback_log.csv
+# ---------------------------------------------------------------------------------------
+
+def _fb_context() -> dict:
+    ss = st.session_state
+    return {"role": ss.get("fb_role", ""), "branch": ss.get("branch", ALL), "dataset": ss.get("_ds_id", "")}
+
+
+def feedback(module: str, item: str, recommendation: str, key: str) -> None:
+    """Thumbs up / down plus an optional comment for one recommendation."""
+    k = f"fb_{key}"
+
+    def _rate():
+        v = st.session_state.get(k)
+        if v is not None:
+            fb.record(module, item, recommendation, rating=int(v), **_fb_context())
+            st.toast("Feedback saved. Thank you!", icon=":material/check_circle:")
+
+    def _comment():
+        text = st.session_state.get(f"{k}_c", "").strip()
+        if text:
+            fb.record(module, item, recommendation, rating=None, comment=text, **_fb_context())
+            st.toast("Comment saved. Thank you!", icon=":material/check_circle:")
+
+    a, b = st.columns([2, 3], vertical_alignment="center")
+    with a:
+        st.feedback("thumbs", key=k, on_change=_rate)
+    with b:
+        with st.popover("Comment"):
+            st.text_input("What would make this more useful?", key=f"{k}_c", on_change=_comment)
+
+
+def page_feedback(module: str, recommendation: str) -> None:
+    with st.container(border=True):
+        st.markdown(f"**Was this page useful for your decisions?** "
+                    f"Your rating helps us measure usefulness in the pilot.")
+        feedback(module, "page", recommendation, key=f"page_{module}")
 
 
 def footer() -> None:

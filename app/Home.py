@@ -85,12 +85,15 @@ with r1.container(border=True):
     st.markdown("**:material/insights: Next 7 days**")
     st.markdown(f"Expected revenue **{ui.uzs(rev7['forecast'].sum())}**")
     st.page_link("pages/1_Forecast.py", label="Open forecast", icon=":material/arrow_forward:")
+    ui.feedback("Forecast", "next 7 days", f"Expected revenue {ui.uzs(rev7['forecast'].sum())}", "ov_fc")
 with r2.container(border=True):
     st.markdown("**:material/add_shopping_cart: Upsell**")
     if len(c["upsell"]):
         u = c["upsell"].iloc[0]
         st.markdown(f"{u['script']} — **+{ui.uzs(u['extra_cm_month'])}** margin / month")
     st.page_link("pages/3_Pricing_and_Upsell.py", label="All upsell ideas", icon=":material/arrow_forward:")
+    if len(c["upsell"]):
+        ui.feedback("Upsell", str(u["script"])[:60], str(u["script"]), "ov_up")
 with r3.container(border=True):
     st.markdown("**:material/sell: Price**")
     pa = c["prices"][c["prices"]["recommended_price"] != c["prices"]["current_price"]]
@@ -100,6 +103,9 @@ with r3.container(border=True):
     else:
         st.markdown("No confident price changes.")
     st.page_link("pages/3_Pricing_and_Upsell.py", label="Pricing", icon=":material/arrow_forward:")
+    if len(pa):
+        ui.feedback("Pricing", str(p["item_name"]),
+                    f"{p['item_name']}: {ui.num(p['current_price'])} -> {ui.num(p['recommended_price'])} UZS", "ov_pr")
 with r4.container(border=True):
     st.markdown("**:material/groups: Staffing**")
     comp = ops["staff_comparison"]
@@ -107,6 +113,7 @@ with r4.container(border=True):
         comp = comp[comp["branch"] == branch]
     st.markdown(f"Demand-based shifts save **{int(comp['hours_saved'].sum())} staff-hours** next week")
     st.page_link("pages/4_Operations.py", label="Operations", icon=":material/arrow_forward:")
+    ui.feedback("Staffing", "next week", f"Demand-based shifts save {int(comp['hours_saved'].sum())} staff-hours", "ov_st")
 
 with st.expander("Revenue by category"):
     cm = k["category_mix"]

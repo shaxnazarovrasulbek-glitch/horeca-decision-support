@@ -1,0 +1,74 @@
+[
+  {
+    "branches": 2,
+    "days": 365,
+    "orders": 85878,
+    "order_lines": 533712,
+    "revenue_bn": 16.0476665,
+    "seconds": {
+      "data": 0.9991105049998623,
+      "kpis_alerts": 0.37109048000002076,
+      "forecast": 1.3744179020000047,
+      "backtest": 5.765255116999924,
+      "menu_price_basket": 0.5682474440000078,
+      "operations": 0.08379048300002978,
+      "waste_sim": 2.4948591730001226,
+      "ai_facts": 0.1683797579999009
+    },
+    "total_seconds": 11.825150861999873,
+    "wape": 0.1317850602906481,
+    "best_rule_wape": 0.14227896371055607,
+    "ai_context_tokens": 1327,
+    "peak_memory_mb": 504.82421875,
+    "start": "2025-10-16",
+    "end": "2026-10-15"
+  },
+  {
+    "branches": 5,
+    "days": 365,
+    "orders": 234941,
+    "order_lines": 1455850,
+    "revenue_bn": 43.7246075,
+    "seconds": {
+      "data": 2.658245871999952,
+      "kpis_alerts": 0.7702013610000904,
+      "forecast": 3.0128055100001347,
+      "backtest": 11.579588109000042,
+      "menu_price_basket": 1.2718623850000768,
+      "operations": 0.14234662700005174,
+      "waste_sim": 4.028134474999888,
+      "ai_facts": 0.41527552400020795
+    },
+    "total_seconds": 23.878459863000444,
+    "wape": 0.10993879822139259,
+    "best_rule_wape": 0.1313675331917589,
+    "ai_context_tokens": 1742,
+    "peak_memory_mb": 996.78125,
+    "start": "2025-10-16",
+    "end": "2026-10-15"
+  },
+  {
+    "branches": 10,
+    "days": 365,
+    "orders": 465273,
+    "order_lines": 2886005,
+    "revenue_bn": 86.683666,
+    "seconds": {
+      "data": 5.497164940000175,
+      "kpis_alerts": 1.4305244269999093,
+      "forecast": 5.072370325000065,
+      "backtest": 21.510108084999956,
+      "menu_price_basket": 2.213055324000152,
+      "operations": 0.25153991899992434,
+      "waste_sim": 7.418095577999793,
+      "ai_facts": 1.141756310000119
+    },
+    "total_seconds": 44.534614908000094,
+    "wape": 0.10649984692800285,
+    "best_rule_wape": 0.1316698884736454,
+    "ai_context_tokens": 2261,
+    "peak_memory_mb": 1822.94921875,
+    "start": "2025-10-16",
+    "end": "2026-10-15"
+  }
+]

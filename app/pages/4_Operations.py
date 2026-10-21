@@ -131,4 +131,6 @@ with tab_w:
                  {"waste_pct_of_purchases": st.column_config.NumberColumn("Waste % of purchases", format="percent"),
                   "shortage_pct_of_use": st.column_config.NumberColumn("Shortage % of use", format="percent")})
 
+ui.page_feedback("Operations", "staff schedule, purchase list and waste simulation")
+
 ui.footer()

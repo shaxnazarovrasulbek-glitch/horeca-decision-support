@@ -61,12 +61,14 @@ def reference_tables() -> tuple[pd.DataFrame, pd.DataFrame]:
 
 
 def generate_dataset(end: str | pd.Timestamp | None = None, days: int = 365,
-                     seed: int = 42) -> dict[str, pd.DataFrame]:
+                     seed: int = 42, branches: list | None = None) -> dict[str, pd.DataFrame]:
     """Generate a full dataset ending on `end` (default: yesterday).
 
     Returns a dict with ``sales`` (order lines), ``calendar``, ``menu``,
     ``recipes``, ``ingredients``, ``price_history`` and ``incidents``.
+    `branches` defaults to the two demo branches; pass ``make_branches(n)`` for scale tests.
     """
+    branches = BRANCHES if branches is None else branches
     rng = np.random.default_rng(seed)
     end = (pd.Timestamp.today().normalize() - pd.Timedelta(days=1)) if end is None else pd.Timestamp(end).normalize()
     start = end - pd.Timedelta(days=days - 1)
@@ -126,7 +128,7 @@ def generate_dataset(end: str | pd.Timestamp | None = None, days: int = 365,
     incidents = _incidents(dates)
 
     cells = []
-    for b_idx, br in enumerate(BRANCHES):
+    for b_idx, br in enumerate(branches):
         season = np.where(np.isin(month, [1, 2]), 0.94, 1.0) * np.where(month == 12, 1.05, 1.0)
         daily = (br.base_orders_per_hour * (1 + 0.18 * t) * season * np.array(br.dow_profile)[dow]
                  * hol * np.where(promo, 1.15, 1.0) * rng.lognormal(0, 0.045, n_days))
@@ -224,8 +226,8 @@ def generate_dataset(end: str | pd.Timestamp | None = None, days: int = 365,
     day = o_day[o]
     minute = rng.integers(0, 60, n_orders)
     ts = dates[o_day] + pd.to_timedelta(o_hour, unit="h") + pd.to_timedelta(minute, unit="m")
-    branch_names = np.array([b.name for b in BRANCHES])
-    code = np.array([b.name[:2].upper() for b in BRANCHES])
+    branch_names = np.array([b.name for b in branches])
+    code = np.array([b.name[:2].upper() for b in branches])
     order_ids = np.char.add(code[orders["branch"].to_numpy()],
                             np.char.zfill(np.arange(1, n_orders + 1).astype(str), 7))
     sales = pd.DataFrame({

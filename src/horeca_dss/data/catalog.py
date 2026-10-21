@@ -103,6 +103,22 @@ BRANCHES: list[Branch] = [
     ),
 ]
 
+def make_branches(n: int = 2, seed: int = 0) -> list[Branch]:
+    """Return `n` branches for scale tests: the two real profiles first, then synthetic
+    copies ("Branch 03", ...) that alternate between a family-district and a
+    business-district profile with a different size (70-130% of the base demand)."""
+    if n <= len(BRANCHES):
+        return BRANCHES[:max(n, 1)]
+    import numpy as np
+    rng = np.random.default_rng(seed)
+    out = list(BRANCHES)
+    for k in range(len(BRANCHES), n):
+        base = BRANCHES[k % len(BRANCHES)]
+        out.append(Branch(f"Branch {k + 1:02d}", round(base.base_orders_per_hour * float(rng.uniform(0.7, 1.3)), 2),
+                          base.hour_profile, base.dow_profile, base.summer_terrace))
+    return out
+
+
 # ingredient -> (unit, unit cost UZS, shelf life days)
 INGREDIENTS: dict[str, tuple[str, int, int]] = {
     "Rice": ("kg", 18000, 180),

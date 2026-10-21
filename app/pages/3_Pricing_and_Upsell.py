@@ -107,4 +107,6 @@ with tab_e:
                             "days_with_price_change": st.column_config.NumberColumn("Days with different price"),
                             "n_obs": st.column_config.NumberColumn("Days observed")})
 
+ui.page_feedback("Pricing & upsell", "price recommendations, upsell scripts and combos")
+
 ui.footer()

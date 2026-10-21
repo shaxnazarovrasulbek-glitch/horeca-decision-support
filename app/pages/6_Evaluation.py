@@ -123,12 +123,87 @@ with b2:
         ui.metric(st, "Incidents detected", f"{sum(int(r['detected days'].split('/')[0]) > 0 for r in rows)} / {len(rows)}", border=True)
         ui.table(pd.DataFrame(rows))
 
+# ---- manager feedback ------------------------------------------------------------------------
+st.subheader("4 · Manager feedback on recommendations")
+log = ui.fb.load()
+ov = ui.fb.overall(log)
+f1, f2, f3 = st.columns(3)
+ui.metric(f1, "Recommendations rated", ui.num(ov["ratings"]), border=True)
+ui.metric(f2, "Rated useful", "–" if ov["useful_share"] is None else f"{ov['useful_share']:.0%}",
+          f"pilot target: at least {ov['target']:.0%}", note=True, border=True)
+ui.metric(f3, "Comments", ui.num(ov["comments"]), border=True)
+fb_summary = ui.fb.summary(log)
+if ov["ratings"] == 0 and ov["comments"] == 0:
+    st.info("No ratings yet. Every recommendation in the app has a 👍 / 👎 and a comment box. Each click is saved "
+            "with the manager's role (sidebar), so in the pilot we can measure how useful each module is for "
+            "branch and operations managers.", icon=":material/thumbs_up_down:")
+else:
+    ui.table(fb_summary, column_config={"module": "Module", "ratings": "Ratings", "useful": "Useful",
+                                        "useful_share": st.column_config.NumberColumn("Share useful", format="percent"),
+                                        "comments": "Comments"})
+    com = log[log["comment"].fillna("").str.strip() != ""].sort_values("timestamp", ascending=False)
+    if len(com):
+        st.caption("Latest comments")
+        ui.table(com[["timestamp", "module", "role", "comment"]].head(8),
+                 column_config={"timestamp": st.column_config.DatetimeColumn("When", format="DD MMM HH:mm")})
+    st.download_button("Download feedback log (CSV)", log.to_csv(index=False), file_name="feedback_log.csv",
+                       icon=":material/download:")
+
+# ---- scale test --------------------------------------------------------------------------
+st.subheader("5 · Scale test: more branches, more data")
+scale_file = ui.ROOT / "docs" / "scale_test.json"
+scale = pd.read_json(scale_file) if scale_file.exists() else None
+if scale is not None and len(scale):
+    sc = pd.DataFrame({
+        "Branches": scale["branches"], "Orders": scale["orders"], "Order lines": scale["order_lines"],
+        "Full analysis (s)": scale["total_seconds"].round(1),
+        "Forecast WAPE": scale["wape"], "Best rule WAPE": scale["best_rule_wape"],
+    })
+    s1, s2 = st.columns([3, 2])
+    with s1:
+        ui.table(sc, column_config={"Orders": ui.money_col("Orders"), "Order lines": ui.money_col("Order lines"),
+                                    "Forecast WAPE": st.column_config.NumberColumn(format="percent"),
+                                    "Best rule WAPE": st.column_config.NumberColumn(format="percent")})
+        st.caption(f"Measured with `python scripts/scale_test.py`: all steps the app runs on its first start, one year "
+                   f"of data per size. {scale['order_lines'].iloc[-1] / scale['order_lines'].iloc[0]:.1f}x more data took "
+                   f"{scale['total_seconds'].iloc[-1] / scale['total_seconds'].iloc[0]:.1f}x more time. The AI fact sheet "
+                   f"grows only from ~{scale['ai_context_tokens'].iloc[0]:,} to ~{scale['ai_context_tokens'].iloc[-1]:,} "
+                   f"tokens. After the first run every step is cached, so pages open in about a second.")
+    with s2:
+        fig = go.Figure(go.Scatter(x=scale["branches"], y=scale["total_seconds"], mode="lines+markers",
+                                   customdata=scale["order_lines"], marker=dict(size=9, color=ui.SERIES[0]),
+                                   line=dict(color=ui.SERIES[0], width=2),
+                                   hovertemplate="%{x} branches · %{customdata:,.0f} order lines<br>%{y:.1f} s<extra></extra>"))
+        fig.update_xaxes(title="branches (one year of data each)", tickvals=list(scale["branches"]))
+        fig.update_yaxes(title="seconds", rangemode="tozero")
+        fig.update_layout(title="Time for the full analysis")
+        ui.show(ui.style(fig, 300, legend=False))
+else:
+    st.info("Run `python scripts/scale_test.py` to measure 2, 5 and 10 branches.")
+
+# ---- real-world validation -----------------------------------------------------------------
+st.subheader("6 · Next step: validation with a real restaurant")
+st.markdown(
+    "- **Pilot, 6 weeks:** one real restaurant chain, POS export (iiko / R-Keeper / Poster). Weeks 1–2 baseline, "
+    "weeks 3–6 one branch follows the platform, the other works as usual (A/B).\n"
+    "- **KPIs and targets:** forecast error (WAPE) ≤ 15% and better than the manager's rule; perishable waste −15%; "
+    "staff-hours −5% with no more understaffed peak hours; margin from price and upsell actions measured per week.\n"
+    "- **Manager feedback:** every recommendation rated 👍 / 👎 in the app (target ≥ 70% useful), a weekly "
+    "15-minute interview and a short survey (usefulness, ease of use, trust) at the end.\n"
+    "- **Scale:** after the pilot, 3–5 restaurants; heavy steps move to a nightly job with results in a database.")
+st.page_link("https://github.com/shaxnazarovrasulbek-glitch/horeca-decision-support/blob/main/docs/validation_plan.md",
+             label="Full validation plan (GitHub)", icon=":material/open_in_new:")
+
 # ---- export --------------------------------------------------------------------------------
 st.subheader("Export for the report")
 md = ["# Evaluation results", "", f"Data: {ds.source}, {ds.start:%Y-%m-%d} – {ds.end:%Y-%m-%d}", "",
       "## Business impact (per month)", ui.to_markdown(impact.assign(monthly_gain=impact["monthly_gain"].round(0))), "",
       "## Forecast accuracy (WAPE)", ui.to_markdown(fc_tab.round(4)), "",
       "## Revenue WAPE by day type", ui.to_markdown(bd.round(4))]
+if len(fb_summary):
+    md += ["", "## Manager feedback (latest rating per recommendation)", ui.to_markdown(fb_summary.round(3))]
+if scale is not None and len(scale):
+    md += ["", "## Scale test", ui.to_markdown(scale[["branches", "orders", "order_lines", "total_seconds", "wape"]].round(3))]
 st.download_button("Download results (Markdown)", "\n".join(md), file_name="evaluation_results.md", icon=":material/download:")
 
 ui.footer()

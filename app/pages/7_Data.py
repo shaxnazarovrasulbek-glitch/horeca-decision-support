@@ -20,11 +20,17 @@ mode = st.radio("Data source", ["generated", "upload"], horizontal=True,
 
 if mode == "generated":
     st.session_state["data_mode"] = "generated"
-    c1, c2, c3 = st.columns([1, 1, 2])
+    c1, c2, c3, c4 = st.columns([1, 1, 2, 1], vertical_alignment="bottom")
     seed = c1.number_input("Random seed", 1, 9999, st.session_state.get("seed", 42))
     days = c2.select_slider("History (days)", [180, 270, 365, 540], value=st.session_state.get("days", 365))
-    if c3.button("Generate", type="primary", icon=":material/autorenew:"):
+    ends = {ui.EVAL_END: f"{ui.pd.Timestamp(ui.EVAL_END):%d %b %Y} (evaluation date, same numbers as the report)",
+            "yesterday": "Yesterday (rolling window)"}
+    cur = st.session_state.get("data_end") or ui.os.environ.get("HORECA_DATA_END", ui.EVAL_END)
+    end_choice = c3.selectbox("Data ends on", list(ends), format_func=ends.get,
+                              index=1 if str(cur).lower() == "yesterday" else 0)
+    if c4.button("Generate", type="primary", icon=":material/autorenew:"):
         st.session_state["seed"], st.session_state["days"] = int(seed), int(days)
+        st.session_state["data_end"] = end_choice
         st.session_state["chat"] = []
         st.rerun()
     st.info("Synthetic chain of 2 restaurants in Tashkent (Chilanzar: family district, Yunusabad: business district). "

@@ -33,9 +33,13 @@ Status as of the start of the sprint. Update the status column as work progresse
 | US-14 | to ask questions in EN / RU / UZ | Gemini answers from computed facts; offline fallback | E5 | Done |
 | US-15 | a one-click weekly briefing | performance, alerts, top actions with UZS impact | E5 | Done |
 | US-16 | all results in one place for the report | Evaluation page and `scripts/evaluate.py` | E6 | Done |
-| US-17 | the code on GitHub with documentation | README, architecture, tests, run scripts | E6 | In progress |
-| US-18 | a recorded demo video (5–7 min) | recorded before 22 Oct | E6 | To do |
-| US-19 | the internship report and signed feedback form | uploaded to Learn by 25 Oct | E6 | To do |
+| US-17 | the code on GitHub with documentation | README, architecture, tests, run scripts | E6 | Done |
+| US-18 | a recorded demo video (5–7 min) | recorded before 22 Oct | E6 | Done |
+| US-19 | the internship report and signed feedback form | uploaded to Learn by 25 Oct | E6 | In progress |
+| US-20 | to rate every recommendation (👍 / 👎 + comment) | rating saved with role; usefulness by module on Evaluation page | E6 | Done (after mentor review) |
+| US-21 | to know the platform works for a bigger chain | scale test 2 / 5 / 10 branches with time, memory and accuracy | E6 | Done (after mentor review) |
+| US-22 | a plan to validate the results with a real restaurant | 6-week A/B pilot, KPIs, targets, feedback protocol, go / no-go gate | E6 | Done (after mentor review) |
+| US-23 | to see how fast the AI assistant answers | response time shown under every answer; thinking off for Flash | E5 | Done (after mentor review) |
 
 ## Risks
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import re
+import time
 from dataclasses import dataclass
 
 import pandas as pd
@@ -310,22 +311,37 @@ class LLMError(RuntimeError):
     pass
 
 
+def build_payload(system: str, contents: list[dict], model: str) -> dict:
+    """Request body for Gemini. The model only explains facts we already computed, so "thinking"
+    is switched off on Gemini 2.5 Flash / Flash-Lite: faster answers and fewer billed tokens."""
+    config = {"temperature": 0.3, "maxOutputTokens": 4096}
+    if model.startswith("gemini-2.5-flash"):
+        config["thinkingConfig"] = {"thinkingBudget": 0}
+    return {"system_instruction": {"parts": [{"text": system}]}, "contents": contents, "generationConfig": config}
+
+
 @dataclass
 class GeminiClient:
     api_key: str
     model: str = DEFAULT_MODEL
     timeout: int = 45
 
+    def _post(self, model: str, payload: dict):
+        return requests.post(GEMINI_URL.format(model=model), json=payload, timeout=self.timeout,
+                             headers={"x-goog-api-key": self.api_key, "Content-Type": "application/json"})
+
     def generate(self, system: str, messages: list[dict]) -> tuple[str, str]:
         contents = [{"role": "model" if m["role"] == "assistant" else "user", "parts": [{"text": m["content"]}]}
                     for m in messages]
-        payload = {"system_instruction": {"parts": [{"text": system}]}, "contents": contents,
-                   "generationConfig": {"temperature": 0.3, "maxOutputTokens": 4096}}
         last_err = None
         for model in [self.model] + [m for m in FALLBACK_MODELS if m != self.model]:
+            payload = build_payload(system, contents, model)
             try:
-                r = requests.post(GEMINI_URL.format(model=model), json=payload, timeout=self.timeout,
-                                  headers={"x-goog-api-key": self.api_key, "Content-Type": "application/json"})
+                r = self._post(model, payload)
+                if r.status_code == 400 and "thinkingConfig" in payload["generationConfig"]:
+                    # older/newer model that does not accept the thinking setting: retry without it
+                    payload["generationConfig"].pop("thinkingConfig")
+                    r = self._post(model, payload)
             except requests.RequestException as e:
                 raise LLMError(f"Network error: {e.__class__.__name__}") from e
             if r.status_code == 200:
@@ -366,15 +382,18 @@ class Assistant:
 
     def ask(self, question: str, history: list[dict] | None = None) -> dict:
         history = history or []
+        t0 = time.perf_counter()
         if self.client:
             try:
                 msgs = history[-8:] + [{"role": "user", "content": question}]
                 text, model = self.client.generate(SYSTEM_PROMPT + "\nCONTEXT:\n" + self.context, msgs)
-                return {"text": text, "engine": f"Gemini ({model})", "error": None}
+                return {"text": text, "engine": f"Gemini ({model})", "error": None,
+                        "seconds": time.perf_counter() - t0}
             except LLMError as e:
                 return {"text": offline_answer(question, self.facts), "engine": "Offline rules (fallback)",
-                        "error": str(e)}
-        return {"text": offline_answer(question, self.facts), "engine": "Offline rules", "error": None}
+                        "error": str(e), "seconds": time.perf_counter() - t0}
+        return {"text": offline_answer(question, self.facts), "engine": "Offline rules", "error": None,
+                "seconds": time.perf_counter() - t0}
 
     def briefing(self) -> dict:
         q = ("Write this week's manager briefing: 3-line performance summary, alerts that need attention, "
@@ -383,5 +402,8 @@ class Assistant:
             res = self.ask(q)
             if res["error"] is None:
                 return res
-            return {"text": briefing_offline(self.facts), "engine": "Offline rules (fallback)", "error": res["error"]}
-        return {"text": briefing_offline(self.facts), "engine": "Offline rules", "error": None}
+            return {"text": briefing_offline(self.facts), "engine": "Offline rules (fallback)", "error": res["error"],
+                    "seconds": res.get("seconds")}
+        t0 = time.perf_counter()
+        return {"text": briefing_offline(self.facts), "engine": "Offline rules", "error": None,
+                "seconds": time.perf_counter() - t0}

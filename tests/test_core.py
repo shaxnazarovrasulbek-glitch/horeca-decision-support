@@ -197,3 +197,68 @@ def test_context_contains_key_numbers(facts):
     ctx = assistant.context_text(facts)
     assert "FORECAST next 7 days" in ctx and "MENU ENGINEERING" in ctx and "UPSELL" in ctx
     assert len(ctx) < 12000                                      # stays small for the free tier
+
+
+# ---- added after the PM mentor review (21 Oct 2026) ----------------------------------------
+
+def test_feedback_log_roundtrip(tmp_path):
+    from horeca_dss import feedback as fb
+    path = tmp_path / "fb.csv"
+    fb.record("Pricing", "Plov", "Plov 49000 -> 52000", rating=1, role="Branch manager", path=path)
+    fb.record("Pricing", "Plov", "Plov 49000 -> 52000", rating=0, role="Branch manager", path=path)  # changed vote
+    fb.record("Upsell", "Medovik", "With Medovik suggest Cappuccino", rating=1, path=path)
+    fb.record("Upsell", "Medovik", "", rating=None, comment="Good, but not at lunch", path=path)
+    df = fb.load(path)
+    assert len(df) == 4
+    s = fb.summary(df).set_index("module")
+    assert s.loc["Pricing", "ratings"] == 1 and s.loc["Pricing", "useful"] == 0   # last vote counts
+    assert s.loc["Upsell", "useful_share"] == 1.0 and s.loc["Upsell", "comments"] == 1
+    ov = fb.overall(df)
+    assert ov["ratings"] == 2 and ov["useful_share"] == 0.5 and ov["comments"] == 1
+
+
+def test_feedback_empty(tmp_path):
+    from horeca_dss import feedback as fb
+    df = fb.load(tmp_path / "missing.csv")
+    assert df.empty and fb.summary(df).empty and fb.overall(df)["useful_share"] is None
+
+
+def test_more_branches_for_scale_test():
+    from horeca_dss.data.catalog import make_branches
+    from horeca_dss.data.loader import load_generated
+    br = make_branches(5)
+    assert len(br) == 5 and len({b.name for b in br}) == 5
+    ds = load_generated(seed=3, end="2026-03-31", days=60, n_branches=4)
+    assert ds.sales["branch"].nunique() == 4 and ds.dataset_id.endswith("-b4")
+    assert ds.sales["order_id"].is_unique is False or ds.sales["order_id"].nunique() > 0
+
+
+def test_gemini_payload_and_timing(monkeypatch):
+    from horeca_dss import assistant as a
+    p = a.build_payload("sys", [{"role": "user", "parts": [{"text": "hi"}]}], "gemini-2.5-flash")
+    assert p["generationConfig"]["thinkingConfig"] == {"thinkingBudget": 0}
+    assert "thinkingConfig" not in a.build_payload("sys", [], "gemini-flash-latest")["generationConfig"]
+
+    class R:
+        def __init__(self, code, body=None):
+            self.status_code, self._b = code, body or {}
+
+        def json(self):
+            return self._b
+
+    calls = []
+
+    def fake_post(url, json, timeout, headers):
+        calls.append(("thinkingConfig" in json["generationConfig"], url))
+        if len(calls) == 1:
+            return R(400)          # model rejects the thinking setting -> retry without it
+        return R(200, {"candidates": [{"content": {"parts": [{"text": "Revenue fell because of the outage."}]}}]})
+
+    monkeypatch.setattr(a.requests, "post", fake_post)
+    facts = {"kpis": {}, "alerts": []}
+    monkeypatch.setattr(a, "context_text", lambda f: "CONTEXT")
+    bot = a.Assistant(facts, api_key="test-key")
+    res = bot.ask("Why did revenue drop?")
+    assert res["engine"].startswith("Gemini") and res["error"] is None
+    assert res["seconds"] is not None and res["seconds"] >= 0
+    assert calls[0][0] is True and calls[1][0] is False

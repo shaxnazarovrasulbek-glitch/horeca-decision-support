@@ -75,4 +75,6 @@ ui.table(t, column_config={
     "total_cm": ui.money_col("Total margin"), "food_cost_pct": st.column_config.NumberColumn("Food cost", format="percent"),
     "action": st.column_config.TextColumn("Recommended action", width="large")}, height=460)
 
+ui.page_feedback("Menu engineering", "menu matrix and actions per dish")
+
 ui.footer()

@@ -126,4 +126,6 @@ with a2:
     fig.update_xaxes(title="days ahead")
     ui.show(ui.style(fig, 300, hover="x unified"))
 
+ui.page_feedback("Forecast", "14-day revenue and guest forecast")
+
 ui.footer()

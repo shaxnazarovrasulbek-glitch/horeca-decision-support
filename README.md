@@ -14,6 +14,18 @@ It is for a restaurant manager. You load point-of-sale (POS) data and the platfo
 
 ![Overview](docs/screenshots/overview.png)
 
+### Changes after the PM mentor review (21 Oct 2026)
+
+The review asked for real-world validation. Each growth point now has a concrete answer:
+
+| Growth point | What was added |
+|---|---|
+| Pilot with real restaurant data | [Validation plan](docs/validation_plan.md): a 6-week A/B pilot with KPIs, success targets and a go / no-go gate |
+| Structured feedback from branch and operations managers | **"Was this useful?" 👍 / 👎 + comment** on every recommendation and AI answer, saved with the user's role; summary on the Evaluation page |
+| Scale to more restaurants and bigger data | [Scale test](docs/scale_test.md): 2 → 10 branches (0.5 → 2.9 million order lines). 5.4× more data took 3.8× more time, and the forecast stays accurate |
+
+The AI assistant now also shows **how long each answer took**. Gemini 2.5 Flash runs with "thinking" switched off, because it only explains numbers that are already computed. This makes answers faster and cheaper.
+
 ---
 
 ## Quick start
@@ -89,7 +101,7 @@ All numbers are computed by the analytics modules. The language model only expla
 
 ## Evaluation (demo data: seed 42, one year up to 15 Oct 2026)
 
-Reproduce with `python scripts/evaluate.py --end 2026-10-15` (writes `docs/results.md`). The app itself always generates data up to yesterday, so its numbers move slightly from day to day.
+Reproduce with `python scripts/evaluate.py --end 2026-10-15` (writes `docs/results.md`). The app's demo data also ends on 15 Oct 2026, so the app shows the same numbers. You can switch to a rolling window (data up to yesterday) on the **Data** page, or with `HORECA_DATA_END=yesterday`.
 
 | Measure | Result |
 |---|---|
@@ -99,6 +111,7 @@ Reproduce with `python scripts/evaluate.py --end 2026-10-15` (writes `docs/resul
 | Staff-hours vs a fixed schedule (next 7 days) | **−225 hours** and 44 understaffed peak hours avoided |
 | Planted item pairings recovered by basket analysis | 10 of 12 |
 | Planted incidents (outage, equipment failure) detected | 2 of 2 |
+| Scale: 10 branches, 2.9 M order lines (one year) | full analysis in **45 s** (2 branches: 12 s); forecast WAPE 10.6% vs 13.2% for the best rule |
 
 These are results on **synthetic data**. They show that the methods work and how big the effects could be. Real impact has to be confirmed with a pilot (A/B test between the two branches).
 
@@ -129,10 +142,12 @@ src/horeca_dss/
   basket.py             association rules, upsell value, combos
   operations.py         staffing, purchasing, waste simulation
   assistant.py          facts -> context, Gemini client, offline answers
+  feedback.py           manager feedback log (👍 / 👎 + comments) and usefulness summary
   analysis.py           runs everything with one set of settings
 scripts/evaluate.py     reproduces the evaluation numbers
-tests/                  pytest suite (21 tests)
-docs/                   architecture, demo script, backlog, results
+scripts/scale_test.py   times the full analysis for 2, 5 and 10 branches
+tests/                  pytest suite (25 tests)
+docs/                   architecture, demo script, backlog, results, validation plan, scale test
 ```
 
 Run the tests with `pip install -r requirements-dev.txt` and then `pytest -q`.
