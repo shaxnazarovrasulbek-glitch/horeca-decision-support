@@ -2,7 +2,7 @@
 primaryColor = "#2a78d6"
 
 [server]
-headless = false
+headless = true   # needed on Streamlit Community Cloud; run.bat / run.sh open the browser themselves
 runOnSave = false
 
 [browser]
