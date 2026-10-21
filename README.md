@@ -2,6 +2,8 @@
 
 **An AI-enabled decision-support platform for revenue maximisation and operational efficiency in the HoReCa sector.**
 
+**Live demo:** https://horeca-dss.streamlit.app (the first opening of a page can take about a minute while the models train).
+
 This is the practical prototype for my Master's thesis (ITPU × EPAM, MS in IT Project Management & AI, 2025–2026).
 It is for a restaurant manager. You load point-of-sale (POS) data and the platform answers four questions:
 

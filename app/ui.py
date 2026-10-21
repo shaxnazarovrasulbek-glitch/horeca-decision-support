@@ -79,7 +79,21 @@ def set_upload(file) -> Dataset:
     return ds
 
 
+def _secrets_to_env() -> None:
+    """Streamlit Community Cloud: make a GEMINI_API_KEY added under Settings -> Secrets visible
+    without a reboot (reading st.secrets loads the file and copies root keys to os.environ)."""
+    if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
+        return
+    try:
+        for k in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "GEMINI_MODEL"):
+            if k in st.secrets and not os.environ.get(k):
+                os.environ[k] = str(st.secrets[k])
+    except Exception:  # no secrets file (local run without .streamlit/secrets.toml)
+        pass
+
+
 def sidebar(ds: Dataset, show_branch: bool = True, show_period: bool = True) -> tuple[str, int]:
+    _secrets_to_env()
     with st.sidebar:
         st.markdown(f"**{APP_NAME}**")
         st.caption(f"Data: {ds.source} · {ds.start:%d %b %Y} – {ds.end:%d %b %Y}")
