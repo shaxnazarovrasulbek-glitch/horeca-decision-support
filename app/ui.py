@@ -21,6 +21,7 @@ except Exception:  # pragma: no cover
 
 from horeca_dss import analysis, assistant, forecasting, kpis, operations  # noqa: E402
 from horeca_dss import feedback as fb  # noqa: E402
+from horeca_dss import precompute  # noqa: E402
 from horeca_dss.data.loader import Dataset, load_csv, load_generated  # noqa: E402
 
 APP_NAME = "HoReCa Decision-Support Platform"
@@ -149,14 +150,16 @@ def operations_bundle(dataset_id: str, horizon: int, staff: tuple, safety: float
     return analysis.operations_bundle(_ds, fc["covers"], s, days)
 
 
-@st.cache_data(show_spinner="Back-testing the forecast (6 rolling origins)...")
+@st.cache_data(show_spinner="Back-testing the forecast (8 rolling origins)...")
 def backtest(dataset_id: str, target: str, _ds: Dataset) -> dict:
-    return forecasting.backtest(_ds.sales, _ds.calendar, target)
+    pre = precompute.load(f"backtest_{target}", dataset_id)   # default demo data: stored result
+    return pre if pre is not None else forecasting.backtest(_ds.sales, _ds.calendar, target)
 
 
 @st.cache_data(show_spinner="Simulating 4 weeks of ingredient ordering...")
 def waste_backtest(dataset_id: str, _ds: Dataset) -> dict:
-    return operations.waste_backtest(_ds.sales, _ds.calendar, _ds.recipes, _ds.ingredients)
+    pre = precompute.load("waste_backtest", dataset_id)
+    return pre if pre is not None else operations.waste_backtest(_ds.sales, _ds.calendar, _ds.recipes, _ds.ingredients)
 
 
 def staff_tuple() -> tuple:

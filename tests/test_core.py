@@ -262,3 +262,22 @@ def test_gemini_payload_and_timing(monkeypatch):
     assert res["engine"].startswith("Gemini") and res["error"] is None
     assert res["seconds"] is not None and res["seconds"] >= 0
     assert calls[0][0] is True and calls[1][0] is False
+
+
+def test_precomputed_results_match_fresh_computation():
+    """The stored results for the default demo data must equal a fresh computation."""
+    from pandas.testing import assert_frame_equal
+    from horeca_dss import precompute
+    from horeca_dss.data.loader import load_generated
+    ds = load_generated(seed=42, end="2026-10-15", days=365)
+    pre = precompute.load("backtest_revenue", ds.dataset_id)
+    assert pre is not None, "run python scripts/precompute.py"
+    fresh = forecasting.backtest(ds.sales, ds.calendar, "revenue")
+    for key in ("predictions", "metrics", "by_day_type"):
+        assert_frame_equal(pre[key].reset_index(drop=True), fresh[key].reset_index(drop=True),
+                           check_dtype=False, check_exact=False, rtol=1e-9)
+    assert abs(pre["improvement_vs_best_baseline"] - fresh["improvement_vs_best_baseline"]) < 1e-12
+    assert tuple(pre["band"]) == tuple(fresh["band"]) and pre["horizon"] == fresh["horizon"]
+    wb = precompute.load("waste_backtest", ds.dataset_id)
+    assert wb is not None and abs(wb["waste_reduction"] - 0.3526042006292438) < 1e-9
+    assert precompute.load("backtest_revenue", "some-other-dataset") is None

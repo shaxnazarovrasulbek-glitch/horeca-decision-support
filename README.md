@@ -145,10 +145,12 @@ src/horeca_dss/
   operations.py         staffing, purchasing, waste simulation
   assistant.py          facts -> context, Gemini client, offline answers
   feedback.py           manager feedback log (👍 / 👎 + comments) and usefulness summary
+  precompute.py         stored results for the default demo data, checked against a code fingerprint
   analysis.py           runs everything with one set of settings
 scripts/evaluate.py     reproduces the evaluation numbers
 scripts/scale_test.py   times the full analysis for 2, 5 and 10 branches
-tests/                  pytest suite (25 tests)
+scripts/precompute.py   stores the slow back-test results for the default demo data (fast start on a small cloud server)
+tests/                  pytest suite (26 tests)
 docs/                   architecture, demo script, backlog, results, validation plan, scale test
 ```
 
