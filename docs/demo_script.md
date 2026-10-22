@@ -13,7 +13,7 @@
 | 0:30 | Overview | **Problem:** restaurant managers decide on staff, purchases, menu and prices by gut feeling. **User:** a branch or operations manager. **Goal:** turn POS data into concrete actions with a value in UZS. |
 | 1:00 | Overview | KPI tiles vs the previous period. **Alert:** "Tue 06 Oct, Yunusabad −68%: almost no sales from 15:00, so a likely outage." The 👍 / 👎 under each recommendation. |
 | 1:40 | Forecast | 14-day forecast with an 80% range. Switch on the **campaign what-if**. Accuracy vs managers' rules: 13% vs 14%, and 11% vs 17% on holidays, promotions and Ramadan. |
-| 2:20 | Menu engineering | Stars / Plowhorses / Puzzles / Dogs, with one action per dish. |
+| 2:20 | Menu engineering | 4 groups: popular & profitable (keep), popular but low profit (raise price / cut cost), profitable but rarely ordered (promote), not popular & low profit (remove). |
 | 2:45 | Pricing & upsell | Price changes only when the data is reliable, otherwise a 2-week price test. Upsell: "With Medovik, suggest Cappuccino", valued in UZS per month. |
 | 3:15 | Operations | Waiters and cooks per hour: −225 staff-hours vs a fixed schedule. Purchase list. Waste simulation: −35%. |
 | 3:45 | AI assistant | Click "Why did revenue drop on Tuesday?". Show the response time, "What the assistant knows", and rate the answer 👍. |

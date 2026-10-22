@@ -16,7 +16,15 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-SEGMENTS = ["Star", "Plowhorse", "Puzzle", "Dog"]
+SEGMENTS = ["Star", "Plowhorse", "Puzzle", "Dog"]   # classic Kasavana & Smith names (used internally)
+# plain-language names shown to managers
+LABELS = {
+    "Star": "Popular & profitable",
+    "Plowhorse": "Popular, low profit",
+    "Puzzle": "Profitable, rarely ordered",
+    "Dog": "Not popular, low profit",
+}
+SHORT_ACTIONS = {"Star": "keep", "Plowhorse": "raise price or cut cost", "Puzzle": "promote", "Dog": "remove or replace"}
 ACTIONS = {
     "Star": "Keep recipe and price; give it the best menu position and photo. Test a small (+3-5%) price rise.",
     "Plowhorse": "Popular but low margin: reduce portion/ingredient cost or raise price slightly; pair it with a high-margin side.",

@@ -17,6 +17,8 @@ import pandas as pd
 import requests
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+MENU_LABELS = {"Star": "Popular & profitable", "Plowhorse": "Popular, low profit",
+               "Puzzle": "Profitable, rarely ordered", "Dog": "Not popular, low profit"}
 DEFAULT_MODEL = "gemini-2.5-flash"
 FALLBACK_MODELS = ("gemini-flash-latest", "gemini-2.5-flash-lite")
 
@@ -146,9 +148,9 @@ def context_text(f: dict) -> str:
         a = f["accuracy"]
         lines.append(f"Forecast accuracy (backtest WAPE): model {pct(a['model_wape'], False)} vs best manager rule "
                      f"{pct(a['best_baseline_wape'], False)} ({pct(a['improvement'])} relative improvement).")
-    lines.append("MENU ENGINEERING (last period, within each category):")
+    lines.append("MENU GROUPS (last period, popularity x profit per portion within each category):")
     for s, items in f["segments"].items():
-        lines.append(f"  {s}: {', '.join(items) if items else '-'}")
+        lines.append(f"  {MENU_LABELS.get(s, s)}: {', '.join(items) if items else '-'}")
     lines.append("PRICE ACTIONS (confident elasticity estimates): " + ("; ".join(
         f"{p['item_name']} {p['current_price']:,.0f} -> {p['recommended_price']:,.0f} UZS "
         f"(elasticity {p['elasticity']:.2f}, +{fmt_uzs(p['cm_uplift_month'])} margin/month)" for p in f["price_actions"]) or "none"))
@@ -217,7 +219,7 @@ def offline_answer(question: str, f: dict) -> str:
     if intent == "promote":
         pz = f["segments"].get("Puzzle", [])
         out = ["**Promote high-margin dishes that guests under-order, and push proven pairings.**", "",
-               f"- Puzzles (high margin, low popularity): {', '.join(pz[:6]) or '-'} - move up the menu, add photos, waiter recommendation."]
+               f"- Profitable but rarely ordered: {', '.join(pz[:6]) or '-'} - move up the menu, add photos, waiter recommendation."]
         for c in f["combos"][:3]:
             out.append(f"- Combo: **{c['combo']}** for {c['combo_price']:,.0f} UZS (guest saves {c['guest_saves']:,.0f}; margin {c['combo_margin_pct']:.0%}).")
         for u in f["upsell"][:2]:
@@ -261,11 +263,11 @@ def offline_answer(question: str, f: dict) -> str:
         return "\n".join(out)
     if intent == "menu":
         seg = f["segments"]
-        return "\n".join(["**Menu engineering (popularity x margin within each category):**",
-                          f"- Stars (keep & feature): {', '.join(seg['Star'][:8])}",
-                          f"- Plowhorses (popular, low margin - cut cost or small price rise): {', '.join(seg['Plowhorse'][:8])}",
-                          f"- Puzzles (profitable, under-ordered - promote): {', '.join(seg['Puzzle'][:8])}",
-                          f"- Dogs (replace or remove): {', '.join(seg['Dog'][:8]) or '-'}"])
+        return "\n".join(["**Menu groups (popularity x profit per portion, within each category):**",
+                          f"- Popular & profitable - keep and feature: {', '.join(seg['Star'][:8])}",
+                          f"- Popular, low profit - cut cost or raise price slightly: {', '.join(seg['Plowhorse'][:8])}",
+                          f"- Profitable, rarely ordered - promote: {', '.join(seg['Puzzle'][:8])}",
+                          f"- Not popular, low profit - replace or remove: {', '.join(seg['Dog'][:8]) or '-'}"])
     if intent == "forecast":
         out = ["**Revenue forecast for the next 7 days:**"]
         for b, v in f["forecast_7d"].items():

@@ -67,7 +67,7 @@ Without a key, or when the free quota runs out, the assistant answers with built
 |---|---|
 | **Overview** | Revenue, orders, guests, average check, food cost and gross margin vs the previous period; weekly trend; hour × weekday heat-map; **alerts** for unusual days with a likely cause (holiday, promo, weather, "no sales from 15:00 → possible outage"); this week's top recommendations |
 | **Forecast** | 7–14-day revenue / guest forecast per branch with an 80% range, a what-if for marketing campaigns, guests per hour, and an accuracy back-test vs two rules of thumb |
-| **Menu engineering** | Stars / Plowhorses / Puzzles / Dogs within each menu section, with a concrete action per dish |
+| **Menu engineering** | Every dish in one of 4 groups within its menu section: popular & profitable (keep), popular but low profit (raise price or cut cost), profitable but rarely ordered (promote), not popular and low profit (remove). Classic Kasavana & Smith method |
 | **Pricing & upsell** | Price elasticity per dish (with confidence), margin-maximising price changes or proposed price tests, waiter upsell scripts valued in UZS, combo ideas |
 | **Operations** | Waiters and cooks needed per hour, shift blocks, savings vs a fixed schedule, ingredient purchase list, perishable-waste simulation |
 | **AI assistant** | Chat and a one-click weekly manager briefing; shows exactly which facts were sent to the model |

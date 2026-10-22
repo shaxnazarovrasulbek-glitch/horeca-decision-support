@@ -160,7 +160,7 @@ def facts(ds):
 
 @pytest.mark.parametrize("q,expect", [
     ("Why did revenue drop on Tuesday?", "Why:"),
-    ("What should we promote this weekend?", "Puzzles"),
+    ("What should we promote this weekend?", "rarely ordered"),
     ("Which prices should we change?", "Price"),
     ("How many waiters do we need?", "staff-hours"),
     ("Что закупить?", "Purchase plan"),
@@ -195,7 +195,7 @@ def test_gemini_success_and_fallback(facts, monkeypatch):
 
 def test_context_contains_key_numbers(facts):
     ctx = assistant.context_text(facts)
-    assert "FORECAST next 7 days" in ctx and "MENU ENGINEERING" in ctx and "UPSELL" in ctx
+    assert "FORECAST next 7 days" in ctx and "MENU GROUPS" in ctx and "Popular & profitable" in ctx and "UPSELL" in ctx
     assert len(ctx) < 12000                                      # stays small for the free tier
 
 
